@@ -1,0 +1,12 @@
+{
+  "installCommand": "npm --prefix \"CreditRail Frontend\" install",
+  "buildCommand": "npm --prefix \"CreditRail Frontend\" run build",
+  "outputDirectory": "CreditRail Frontend/dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
