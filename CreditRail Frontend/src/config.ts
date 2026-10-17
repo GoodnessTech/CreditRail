@@ -6,8 +6,10 @@ export const chainConfig = {
   rpcUrl: 'https://rpc.botchain.ai',
   explorerUrl: 'https://scan.botchain.ai',
   officialLinks: {
-    botchain: 'https://www.botchain.ai/en/',
-    botscan: 'https://scan.botchain.ai/',
+    botchain: 'https://www.botchain.ai',
+    botchainPortal: 'https://www.botchain.ai/en/',
+    botscan: 'https://scan.botchain.ai',
+    botscanMirror: 'https://www.botscans.net',
     devDocs: 'https://dev-docs.botchain.ai/docs/intro'
   }
 } as const;

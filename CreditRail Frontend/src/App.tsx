@@ -705,6 +705,48 @@ function App() {
               </button>
             )
           )}
+          <a
+            id="nav-botchain-official-site"
+            href={chainConfig.officialLinks.botchain}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="BOT Chain Official Site"
+            style={{
+              fontSize: '11px',
+              color: 'var(--ink)',
+              textDecoration: 'none',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: '1px solid #e0dfd5',
+              background: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            BOT Chain Official Site ↗
+          </a>
+          <a
+            id="nav-botscan-official-explorer"
+            href={chainConfig.officialLinks.botscan}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="BOTScan Official Explorer"
+            style={{
+              fontSize: '11px',
+              color: 'var(--ink)',
+              textDecoration: 'none',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: '1px solid #e0dfd5',
+              background: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            BOTScan Official Explorer ↗
+          </a>
         </nav>
         <Wallet
           wallet={wallet}
@@ -966,25 +1008,43 @@ function App() {
         <div>
           <span>ECOSYSTEM</span>
           <a
+            id="botchain-official-site"
+            data-testid="botchain-official-site"
             href={chainConfig.officialLinks.botchain}
             target="_blank"
             rel="noopener noreferrer"
+            title="BOT Chain Official Site"
             style={{ color: '#a7a7a2', textDecoration: 'none', fontSize: '12px', padding: '4px 0', display: 'block' }}
           >
-            BOT Chain (Official) ↗
+            BOT Chain Official Site ↗
           </a>
           <a
+            id="botscan-official-explorer"
+            data-testid="botscan-official-explorer"
             href={chainConfig.officialLinks.botscan}
             target="_blank"
             rel="noopener noreferrer"
+            title="BOTScan Official Explorer"
             style={{ color: '#a7a7a2', textDecoration: 'none', fontSize: '12px', padding: '4px 0', display: 'block' }}
           >
-            BOTScan Explorer ↗
+            BOTScan Official Explorer ↗
           </a>
           <a
+            id="botscan-vault-contract"
+            href={`${chainConfig.officialLinks.botscan}/address/${protocolConfig.vaultAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="CreditRail Vault Contract on BOTScan"
+            style={{ color: '#a7a7a2', textDecoration: 'none', fontSize: '12px', padding: '4px 0', display: 'block' }}
+          >
+            CreditRail Vault on BOTScan ↗
+          </a>
+          <a
+            id="botchain-dev-docs"
             href={chainConfig.officialLinks.devDocs}
             target="_blank"
             rel="noopener noreferrer"
+            title="BOT Chain Developer Documentation"
             style={{ color: '#a7a7a2', textDecoration: 'none', fontSize: '12px', padding: '4px 0', display: 'block' }}
           >
             Developer Docs ↗
