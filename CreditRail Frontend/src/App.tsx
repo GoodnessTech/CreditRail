@@ -200,6 +200,7 @@ function CreditLinesConsole({
   const [asset, setAsset] = useState(protocolConfig.collateralSymbol)
   const [amount, setAmount] = useState('')
   const [loading, setLoading] = useState(false)
+  const [stepMsg, setStepMsg] = useState<string | null>(null)
   const [txHash, setTxHash] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -217,6 +218,7 @@ function CreditLinesConsole({
     setLoading(true)
     setErrorMsg(null)
     setTxHash(null)
+    setStepMsg(null)
 
     try {
       const provider = getSafeBrowserProvider()
@@ -230,30 +232,62 @@ function CreditLinesConsole({
 
       if (tab === 'deposit') {
         const parsedAmount = ethers.parseUnits(amount, protocolConfig.collateralDecimals)
+        
+        // Check user balance first
+        const userBal = await colContract.balanceOf(userAddress)
+        if (userBal < parsedAmount) {
+          setErrorMsg(`Insufficient ${protocolConfig.collateralSymbol} balance. You currently hold ${ethers.formatUnits(userBal, protocolConfig.collateralDecimals)} ${protocolConfig.collateralSymbol}. Please use the "Mint 10 stBOT" button above first.`)
+          setLoading(false)
+          return
+        }
+
         const allowance = await colContract.allowance(userAddress, protocolConfig.vaultAddress)
         if (allowance < parsedAmount) {
+          setStepMsg('Step 1 of 2: Approving stBOT token... Please confirm the approval prompt in MetaMask.')
           const approveTx = await colContract.approve(protocolConfig.vaultAddress, ethers.MaxUint256)
+          setStepMsg('Step 1 of 2: Approval confirmed on-chain! Now opening Step 2 in MetaMask...')
           await approveTx.wait()
+          setStepMsg('Step 2 of 2: Please confirm the Deposit transaction in MetaMask...')
+        } else {
+          setStepMsg('Step 2 of 2: Confirming deposit in MetaMask...')
         }
         tx = await vaultContract.depositCollateral(parsedAmount)
+        setStepMsg('Deposit transaction submitted! Awaiting final block confirmation on BOT Chain...')
       } else if (tab === 'borrow') {
         const parsedAmount = ethers.parseUnits(amount, protocolConfig.borrowDecimals)
+        setStepMsg('Confirming borrow transaction in MetaMask...')
         tx = await vaultContract.borrow(parsedAmount)
+        setStepMsg('Borrow transaction submitted! Awaiting confirmation...')
       } else if (tab === 'repay') {
         const parsedAmount = ethers.parseUnits(amount, protocolConfig.borrowDecimals)
+        const userBal = await borrowContract.balanceOf(userAddress)
+        if (userBal < parsedAmount) {
+          setErrorMsg(`Insufficient ${protocolConfig.borrowSymbol} balance to repay this amount.`)
+          setLoading(false)
+          return
+        }
         const allowance = await borrowContract.allowance(userAddress, protocolConfig.vaultAddress)
         if (allowance < parsedAmount) {
+          setStepMsg('Step 1 of 2: Approving USDT token in MetaMask...')
           const approveTx = await borrowContract.approve(protocolConfig.vaultAddress, ethers.MaxUint256)
           await approveTx.wait()
+          setStepMsg('Step 2 of 2: Confirming Repayment in MetaMask...')
+        } else {
+          setStepMsg('Confirming repayment in MetaMask...')
         }
         tx = await vaultContract.repay(parsedAmount)
+        setStepMsg('Repayment transaction submitted! Awaiting confirmation...')
       } else if (tab === 'redraw') {
         const parsedAmount = ethers.parseUnits(amount, protocolConfig.borrowDecimals)
+        setStepMsg('Confirming redraw in MetaMask...')
         tx = await vaultContract.redraw(parsedAmount)
+        setStepMsg('Redraw submitted! Awaiting confirmation...')
       } else {
         // withdraw
         const parsedAmount = ethers.parseUnits(amount, protocolConfig.collateralDecimals)
+        setStepMsg('Confirming collateral withdrawal in MetaMask...')
         tx = await vaultContract.withdrawCollateral(parsedAmount)
+        setStepMsg('Withdrawal submitted! Awaiting confirmation...')
       }
 
       setTxHash(tx.hash)
@@ -273,6 +307,7 @@ function CreditLinesConsole({
       setErrorMsg(msg)
     } finally {
       setLoading(false)
+      setStepMsg(null)
     }
   }
 
@@ -444,6 +479,32 @@ function CreditLinesConsole({
             </p>
           )}
 
+          {stepMsg && (
+            <div style={{
+              margin: '14px 0 6px',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              background: '#f4f6fa',
+              border: '1px solid #dcdfe5',
+              fontSize: '11px',
+              color: 'var(--ink)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              lineHeight: 1.4
+            }}>
+              <span style={{
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#2563eb',
+                flexShrink: 0
+              }} />
+              <span>{stepMsg}</span>
+            </div>
+          )}
+
           {txHash && (
             <div style={{ marginTop: '14px', fontSize: '11px', color: '#597d62' }}>
               Transaction submitted:{' '}
@@ -463,7 +524,7 @@ function CreditLinesConsole({
             onClick={connected ? handleAction : onConnect}
             disabled={loading}
           >
-            {loading ? 'Submitting to BOT Chain…' : connected ? `${tab.toUpperCase()} ${amount ? amount : ''}` : 'Connect wallet to continue'}
+            {loading ? (stepMsg ? 'Waiting for Confirmation…' : 'Submitting to BOT Chain…') : connected ? `${tab.toUpperCase()} ${amount ? amount : ''}` : 'Connect wallet to continue'}
           </button>
           <small className="note">Transactions are executed directly on BOT Chain (Chain ID: 677).</small>
         </div>
