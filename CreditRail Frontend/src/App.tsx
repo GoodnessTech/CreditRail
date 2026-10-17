@@ -971,7 +971,7 @@ function App() {
             rel="noopener noreferrer"
             style={{ color: '#a7a7a2', textDecoration: 'none', fontSize: '12px', padding: '4px 0', display: 'block' }}
           >
-            botchain
+            BOT Chain (Official) ↗
           </a>
           <a
             href={chainConfig.officialLinks.botscan}
@@ -979,7 +979,7 @@ function App() {
             rel="noopener noreferrer"
             style={{ color: '#a7a7a2', textDecoration: 'none', fontSize: '12px', padding: '4px 0', display: 'block' }}
           >
-            botscan
+            BOTScan Explorer ↗
           </a>
           <a
             href={chainConfig.officialLinks.devDocs}
@@ -987,7 +987,7 @@ function App() {
             rel="noopener noreferrer"
             style={{ color: '#a7a7a2', textDecoration: 'none', fontSize: '12px', padding: '4px 0', display: 'block' }}
           >
-            dev docs ↗
+            Developer Docs ↗
           </a>
         </div>
         <div>
