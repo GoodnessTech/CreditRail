@@ -19,18 +19,37 @@ export type WalletState = {
   connecting: boolean;
 };
 
+import { ethers } from 'ethers';
+
 // CreditRail Deployed Mainnet / Verification Config
-// Populated upon verified on-chain deployment
+// Populated with verified on-chain deployment addresses (checksummed)
 export const protocolConfig = {
-  vaultAddress: (import.meta as any).env?.VITE_VAULT_ADDRESS || '0x1c80fee5ab55b07349b9c0a8e6376e496970c2d8',
-  collateralTokenAddress: (import.meta as any).env?.VITE_COLLATERAL_TOKEN_ADDRESS || '0x2082599c9c35918774908110d0627e8b3b468152',
-  borrowTokenAddress: (import.meta as any).env?.VITE_BORROW_TOKEN_ADDRESS || '0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C',
-  priceFeedAddress: (import.meta as any).env?.VITE_PRICE_FEED_ADDRESS || '0x265c1fd8b34ca72d37a7b216fc52fb0dcdc29f33',
+  vaultAddress: '0x1c80fEE5AB55b07349b9c0A8E6376e496970C2D8',
+  collateralTokenAddress: '0x2082599c9C35918774908110D0627E8B3B468152',
+  borrowTokenAddress: '0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C',
+  priceFeedAddress: '0x265c1Fd8B34CA72D37A7b216fC52FB0dcdC29f33',
   collateralSymbol: 'stBOT',
   borrowSymbol: 'USDT',
   collateralDecimals: 18,
   borrowDecimals: 6,
 };
+
+// Safe BrowserProvider wrapper that suppresses ENS queries on BOT Chain (Chain ID: 677)
+export function getSafeBrowserProvider() {
+  if (typeof window === 'undefined' || !(window as any).ethereum) {
+    throw new Error('No EVM wallet detected');
+  }
+  const provider = new ethers.BrowserProvider((window as any).ethereum, {
+    name: 'BOT Chain',
+    chainId: 677
+  });
+  // Intercept and bypass ENS resolution since BOT Chain does not have an ENS registry
+  provider.resolveName = async (name: string) => {
+    if (ethers.isAddress(name)) return ethers.getAddress(name);
+    return null;
+  };
+  return provider;
+}
 
 export const VAULT_ABI = [
   'function openCreditLine() external',

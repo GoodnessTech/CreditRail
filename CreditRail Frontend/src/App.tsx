@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { chainConfig, protocolConfig, VAULT_ABI, ERC20_ABI, type WalletState } from './config'
+import { chainConfig, protocolConfig, getSafeBrowserProvider, VAULT_ABI, ERC20_ABI, type WalletState } from './config'
 import { ethers } from 'ethers'
 
 type View = 'overview' | 'credit-lines' | 'markets' | 'activity' | 'documentation'
@@ -29,13 +29,15 @@ interface ActivityItem {
 function Wallet({
   wallet,
   onConnect,
-  onSwitchChain
+  onSwitchChain,
+  onMintFaucet
 }: {
   wallet: WalletState
   onConnect: () => void
   onSwitchChain: () => void
+  onMintFaucet: () => void
 }) {
-  const isWrongChain = wallet.chainId && wallet.chainId.toLowerCase() !== chainConfig.hexId
+  const isWrongChain = wallet.chainId && parseInt(wallet.chainId, 16) !== chainConfig.id
   const label = wallet.connecting
     ? 'Connecting…'
     : wallet.address
@@ -43,7 +45,23 @@ function Wallet({
     : 'Connect wallet'
 
   return (
-    <div className="wallet-wrap">
+    <div className="wallet-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button
+        className="secondary"
+        onClick={wallet.address ? onMintFaucet : onConnect}
+        style={{
+          padding: '6px 12px',
+          borderRadius: '16px',
+          fontSize: '11px',
+          background: 'var(--soft)',
+          border: '1px solid var(--line)',
+          color: 'var(--ink)',
+          whiteSpace: 'nowrap'
+        }}
+        title="Mint free test collateral on BOT Chain"
+      >
+        🎁 Mint 10 stBOT
+      </button>
       {isWrongChain ? (
         <button className="wallet-button error-chain" onClick={onSwitchChain}>
           <i style={{ background: '#9c5149' }} /> Switch to BOT Chain
@@ -201,8 +219,9 @@ function CreditLinesConsole({
     setTxHash(null)
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getSafeBrowserProvider()
       const signer = await provider.getSigner()
+      const userAddress = await signer.getAddress()
       const vaultContract = new ethers.Contract(protocolConfig.vaultAddress, VAULT_ABI, signer)
       const colContract = new ethers.Contract(protocolConfig.collateralTokenAddress, ERC20_ABI, signer)
       const borrowContract = new ethers.Contract(protocolConfig.borrowTokenAddress, ERC20_ABI, signer)
@@ -211,7 +230,7 @@ function CreditLinesConsole({
 
       if (tab === 'deposit') {
         const parsedAmount = ethers.parseUnits(amount, protocolConfig.collateralDecimals)
-        const allowance = await colContract.allowance(wallet.address, protocolConfig.vaultAddress)
+        const allowance = await colContract.allowance(userAddress, protocolConfig.vaultAddress)
         if (allowance < parsedAmount) {
           const approveTx = await colContract.approve(protocolConfig.vaultAddress, ethers.MaxUint256)
           await approveTx.wait()
@@ -222,7 +241,7 @@ function CreditLinesConsole({
         tx = await vaultContract.borrow(parsedAmount)
       } else if (tab === 'repay') {
         const parsedAmount = ethers.parseUnits(amount, protocolConfig.borrowDecimals)
-        const allowance = await borrowContract.allowance(wallet.address, protocolConfig.vaultAddress)
+        const allowance = await borrowContract.allowance(userAddress, protocolConfig.vaultAddress)
         if (allowance < parsedAmount) {
           const approveTx = await borrowContract.approve(protocolConfig.vaultAddress, ethers.MaxUint256)
           await approveTx.wait()
@@ -266,11 +285,12 @@ function CreditLinesConsole({
     setErrorMsg(null)
     setTxHash(null)
     try {
-      const provider = new ethers.BrowserProvider((window as any).ethereum)
+      const provider = getSafeBrowserProvider()
       const signer = await provider.getSigner()
+      const userAddress = await signer.getAddress()
       const colContract = new ethers.Contract(protocolConfig.collateralTokenAddress, ERC20_ABI, signer)
       const mintAmount = ethers.parseUnits('10', protocolConfig.collateralDecimals)
-      const tx = await colContract.mint(wallet.address, mintAmount)
+      const tx = await colContract.mint(userAddress, mintAmount)
       setTxHash(tx.hash)
       await tx.wait()
       onSuccessTx({
@@ -531,13 +551,13 @@ function App() {
   // Fetch Position when wallet connected
   useEffect(() => {
     async function loadPosition() {
-      if (!wallet.address || wallet.chainId?.toLowerCase() !== chainConfig.hexId) return
+      if (!wallet.address || parseInt(wallet.chainId || '0', 16) !== chainConfig.id) return
       if (!protocolConfig.vaultAddress || !window.ethereum) return
 
       try {
-        const provider = new ethers.BrowserProvider(window.ethereum)
+        const provider = getSafeBrowserProvider()
         const vault = new ethers.Contract(protocolConfig.vaultAddress, VAULT_ABI, provider)
-        const p = await vault.getPositionOverview(wallet.address)
+        const p = await vault.getPositionOverview(ethers.getAddress(wallet.address))
         setPosition({
           active: p.active,
           collateralAmount: p.collateralAmount,
@@ -556,12 +576,53 @@ function App() {
     loadPosition()
   }, [wallet.address, wallet.chainId])
 
+  const [faucetLoading, setFaucetLoading] = useState(false)
+  const [faucetStatus, setFaucetStatus] = useState<string | null>(null)
+
+  const triggerMintFaucet = async () => {
+    if (!wallet.address) {
+      await connect()
+      return
+    }
+    setFaucetLoading(true)
+    setFaucetStatus('Minting 10 stBOT on BOT Chain...')
+    try {
+      const provider = getSafeBrowserProvider()
+      const signer = await provider.getSigner()
+      const userAddress = await signer.getAddress()
+      const colContract = new ethers.Contract(protocolConfig.collateralTokenAddress, ERC20_ABI, signer)
+      const mintAmount = ethers.parseUnits('10', protocolConfig.collateralDecimals)
+      const tx = await colContract.mint(userAddress, mintAmount)
+      setFaucetStatus(`Transaction submitted: ${tx.hash.slice(0, 10)}… Waiting for block confirmation…`)
+      await tx.wait()
+      setFaucetStatus('✔ 10 stBOT successfully minted to your wallet!')
+      setActivities((prev) => [
+        {
+          id: tx.hash.slice(0, 10),
+          type: 'FAUCET MINT',
+          amount: `10 ${protocolConfig.collateralSymbol}`,
+          asset: protocolConfig.collateralSymbol,
+          txHash: tx.hash,
+          timestamp: new Date().toLocaleTimeString()
+        },
+        ...prev
+      ])
+      setTimeout(() => setFaucetStatus(null), 8000)
+    } catch (e: unknown) {
+      const err = e as Error
+      setFaucetStatus(`Faucet error: ${err.message}`)
+      setTimeout(() => setFaucetStatus(null), 8000)
+    } finally {
+      setFaucetLoading(false)
+    }
+  }
+
   const go = (next: View) => {
     setView(next)
     document.getElementById(next)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const connected = Boolean(wallet.address && wallet.chainId?.toLowerCase() === chainConfig.hexId)
+  const connected = Boolean(wallet.address && parseInt(wallet.chainId || '0', 16) === chainConfig.id)
 
   return (
     <div className="shell">
@@ -584,10 +645,64 @@ function App() {
             )
           )}
         </nav>
-        <Wallet wallet={wallet} onConnect={connect} onSwitchChain={switchChain} />
+        <Wallet
+          wallet={wallet}
+          onConnect={connect}
+          onSwitchChain={switchChain}
+          onMintFaucet={triggerMintFaucet}
+        />
       </header>
 
       <main>
+        {/* GLOBAL FAUCET BANNER */}
+        <div style={{
+          background: 'linear-gradient(90deg, #f7f6f2 0%, #eeebe1 100%)',
+          border: '1px solid #d9d5c7',
+          padding: '16px 20px',
+          borderRadius: '12px',
+          margin: '0 0 32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div>
+            <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--ink)' }}>
+              🎁 Need stBOT Collateral? Mint 10 stBOT ($20,000 Borrowing Base)
+            </span>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#686762' }}>
+              stBOT is the official collateral token for CreditRail on BOT Chain Mainnet. You can mint test tokens directly into your connected wallet for free.
+            </p>
+          </div>
+          <button
+            className="primary"
+            onClick={triggerMintFaucet}
+            disabled={faucetLoading}
+            style={{
+              padding: '8px 18px',
+              fontSize: '12px',
+              borderRadius: '20px',
+              cursor: faucetLoading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {faucetLoading ? 'Minting on BOT Chain…' : 'Mint 10 stBOT Now'}
+          </button>
+        </div>
+        {faucetStatus && (
+          <div style={{
+            margin: '-20px 0 24px',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            background: faucetStatus.startsWith('✔') ? '#e6f3e9' : '#fcedea',
+            color: faucetStatus.startsWith('✔') ? '#2e6b3e' : '#9c3127',
+            fontSize: '12px',
+            fontFamily: '"DM Mono", monospace'
+          }}>
+            {faucetStatus}
+          </div>
+        )}
+
         <section className="hero" id="overview">
           <div className="hero-copy">
             <label>ONCHAIN CREDIT INFRASTRUCTURE</label>
@@ -600,6 +715,9 @@ function App() {
             <div className="actions">
               <button className="primary" onClick={() => go('credit-lines')}>
                 Open a credit line <span>↗</span>
+              </button>
+              <button className="secondary" onClick={triggerMintFaucet} disabled={faucetLoading}>
+                {faucetLoading ? 'Minting…' : '🎁 Mint 10 stBOT (Faucet)'}
               </button>
               <button className="secondary" onClick={() => go('markets')}>
                 Explore credit markets
