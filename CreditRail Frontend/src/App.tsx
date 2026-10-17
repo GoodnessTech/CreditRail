@@ -257,6 +257,39 @@ function CreditLinesConsole({
     }
   }
 
+  async function handleMintFaucet() {
+    if (!wallet.address || !(window as any).ethereum) {
+      setErrorMsg('Please connect your wallet first.')
+      return
+    }
+    setLoading(true)
+    setErrorMsg(null)
+    setTxHash(null)
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum)
+      const signer = await provider.getSigner()
+      const colContract = new ethers.Contract(protocolConfig.collateralTokenAddress, ERC20_ABI, signer)
+      const mintAmount = ethers.parseUnits('10', protocolConfig.collateralDecimals)
+      const tx = await colContract.mint(wallet.address, mintAmount)
+      setTxHash(tx.hash)
+      await tx.wait()
+      onSuccessTx({
+        id: tx.hash.slice(0, 10),
+        type: 'FAUCET MINT',
+        amount: `10 ${protocolConfig.collateralSymbol}`,
+        asset: protocolConfig.collateralSymbol,
+        txHash: tx.hash,
+        timestamp: new Date().toLocaleTimeString()
+      })
+      setAmount('10')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Faucet mint failed.'
+      setErrorMsg(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <section className="section" id="credit-lines">
       <Heading
@@ -317,6 +350,43 @@ function CreditLinesConsole({
             {tab === 'redraw' && 'Draw against previously repaid credit capacity from the same active position.'}
             {tab === 'withdraw' && 'Release eligible collateral while preserving required collateralization safety.'}
           </p>
+
+          {tab === 'deposit' && (
+            <div style={{
+              background: 'var(--soft)',
+              padding: '12px 14px',
+              borderRadius: '8px',
+              margin: '12px 0 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--ink)' }}>
+                <strong>Need stBOT collateral?</strong>
+                <div style={{ color: '#73736c', marginTop: '2px' }}>
+                  Mint 10 stBOT ($20,000 value) instantly from the faucet.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={handleMintFaucet}
+                disabled={!connected || loading}
+                style={{
+                  fontSize: '11px',
+                  padding: '6px 12px',
+                  whiteSpace: 'nowrap',
+                  borderRadius: '14px',
+                  background: 'var(--ink)',
+                  color: '#fff',
+                  cursor: !connected || loading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Mint 10 stBOT
+              </button>
+            </div>
+          )}
 
           <label>
             Asset
